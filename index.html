@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rome: An Immersive Lucentini Odyssey</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,700;1,700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --rome-red: #8B0000;
+            --rome-gold: #D4AF37;
+            --stone-dark: #1c1917;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: #f5f5f4; }
+        h1, h2, h3 { font-family: 'Playfair Display', serif; }
+        .narrative-text { 
+            font-family: 'Crimson Pro', serif; 
+            font-size: 1.15rem; 
+            line-height: 1.8;
+            color: #292524;
+        }
+        #map { height: 100%; width: 100%; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f5f5f4; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 10px; }
+        .active-day-btn { background-color: var(--rome-red) !important; color: white !important; transform: scale(1.05); }
+        .path-step-active { border-left: 4px solid var(--rome-red); background-color: white; }
+        .tour-link { color: var(--rome-red); text-decoration: underline; font-weight: 600; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Top Navigation -->
+    <header class="bg-stone-900 text-stone-100 p-4 shadow-2xl z-50 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight text-stone-200">Roma Aeterna</h1>
+            <p class="text-xs italic text-stone-500">The Lucentini Narrative Compendium</p>
+        </div>
+        <nav class="flex gap-2">
+            <button onclick="setDay(1)" id="btn1" class="px-4 py-2 text-sm bg-stone-800 rounded transition-all">Day 1: Imperial</button>
+            <button onclick="setDay(2)" id="btn2" class="px-4 py-2 text-sm bg-stone-800 rounded transition-all">Day 2: Papal</button>
+            <button onclick="setDay(3)" id="btn3" class="px-4 py-2 text-sm bg-stone-800 rounded transition-all">Day 3: Baroque</button>
+        </nav>
+    </header>
+
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <!-- Sidebar: List and Content -->
+        <aside class="w-full md:w-2/5 lg:w-1/3 bg-stone-100 border-r border-stone-300 flex flex-col overflow-hidden shadow-xl z-40">
+            <!-- Day Summary -->
+            <div id="day-header" class="p-6 bg-white border-b border-stone-200">
+                <h2 id="current-day-title" class="text-3xl font-bold text-stone-800 mb-2">The Imperial Afternoon</h2>
+                <div id="current-day-desc" class="text-stone-600 italic text-sm leading-relaxed mb-2"></div>
+                <div id="tour-promo" class="text-xs bg-red-50 p-2 rounded border border-red-100 text-red-900"></div>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div id="content-area" class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-12 bg-stone-50">
+                <!-- Sights will be injected here -->
+            </div>
+        </aside>
+
+        <!-- Map View -->
+        <section class="flex-1 relative">
+            <div id="map"></div>
+            <!-- Interactive Floating Legend -->
+            <div class="absolute bottom-6 left-6 z-[1000] bg-white/90 backdrop-blur-md p-4 rounded-xl shadow-lg border border-stone-200 max-w-xs">
+                <h4 class="font-bold text-stone-800 mb-1 text-sm">Walking Insight</h4>
+                <p id="map-tip" class="text-xs text-stone-600 leading-tight">Click a marker to teleport to its narrative.</p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const romeData = {
+            1: {
+                title: "Day 1: The Imperial Foundations",
+                desc: "Tracing the transition from Republic to Empire, focusing on the sheer verticality and architectural ego of the Caesars.",
+                tourName: "Private Rome Colosseum & Forum Tour",
+                tourUrl: "https://www.walksofitaly.com/rome-tours/private-rome-colosseum-tour",
+                color: "#b91c1c",
+                stops: [
+                    {
+                        name: "1. The Flavian Amphitheatre (Colosseum)",
+                        coords: [41.8902, 12.4922],
+                        text: `The Colosseum, or more correctly the Flavian Amphitheatre, stands not merely as a ruin but as a textbook of Roman pragmatism and political theater. Lucentini would invite you to look past the bloodthirsty imagery of the gladiators and instead focus on the pockmarks riddling the travertine facade. These are the scars of the Middle Ages, when the iron clamps holding the massive stones together were quarried out by locals, leaving the building as a skeletal testament to its own structural resilience. Built upon the site of Nero's artificial lake, the Flavians intended this to be a populist gesture—returning to the people the land that a tyrant had stolen. Note the subtle architectural progression: the ground floor utilizes the sturdy Doric order, the second the more elegant Ionic, and the third the ornate Corinthian, reflecting a social hierarchy in stone. The elite sat nearest the arena, shaded by the Velarium, a massive awning operated by a detachment of imperial sailors. It was a masterpiece of crowd control, where 50,000 spectators could be evacuated in minutes through the 'vomitoria'. To understand this building is to understand the Roman obsession with logistical perfection and the manipulation of the masses through spectacle.`
+                    },
+                    {
+                        name: "2. The Arch of Constantine",
+                        coords: [41.8898, 12.4906],
+                        text: `The Arch of Constantine is a fascinating exercise in what historians call 'spoliation'—the recycling of older monuments to build something new. Erected in 315 AD to celebrate Constantine’s victory at the Milvian Bridge, it is essentially a collage. If you look closely at the reliefs, you can distinguish between the fluid, classical style of the 2nd-century panels taken from monuments to Trajan, Hadrian, and Marcus Aurelius, and the flatter, more symbolic carvings produced during Constantine's own time. This wasn't necessarily a sign of declining skill, but a deliberate political maneuver: by literally embedding the figures of the 'Good Emperors' into his own victory arch, Constantine was claiming their legitimacy for his new Christianized regime. It marks the precise moment when the Roman aesthetic began its transition into the medieval, focusing on divine symbolism over physical naturalism. It is a triumphal gate that looks simultaneously backward toward the golden age of empire and forward toward the fractured world of the Middle Ages.`
+                    },
+                    {
+                        name: "3. Entrance to the Palatine Hill",
+                        coords: [41.8890, 12.4875],
+                        text: `The Palatine is the most atmospheric of Rome's seven hills, a high-ground sanctuary where the air feels heavier with the resonance of three millennia. This was the legendary birthplace of the city, where Romulus supposedly traced the first furrow with his plow. Lucentini reminds us that the very word 'palace' is derived from this hill's name—'Palatium.' As you ascend, you are walking through the skeletal remains of the Domus Flavia and the Domus Augustana, the sprawling imperial residences that once gleamed with marble and gold. Unlike the crowded valley below, the Palatine offered the emperors cool breezes and a literal detachment from the common man. Note the 'Iron Age' huts near the crest, preserved in the middle of imperial grandeur; it is a profound irony that the mud and thatch of Romulus survived in the shadow of the marble hubris of Domitian. The hill is now a garden of ruins, where the scent of wild rosemary and stone pine creates a sensory bridge to an antiquity that was both brutal and refined.`
+                    },
+                    {
+                        name: "4. The Arch of Titus",
+                        coords: [41.8907, 12.4876],
+                        text: `Perched at the highest point of the Via Sacra, the Arch of Titus serves as a monumental gate to the Roman Forum. Dedicated in 81 AD, it commemorates the Roman victory in the Jewish War. The most haunting detail is carved into the interior of the archway: a relief showing Roman soldiers carrying away the spoils of the Temple of Jerusalem, including the iconic seven-branched menorah. For centuries, members of Rome’s Jewish community famously refused to walk beneath this arch, as it stood as a symbol of their diaspora. Lucentini points our gaze upward to the center of the vault, where Titus is depicted being carried to the heavens by an eagle—his 'apotheosis' or transformation into a god. The arch is a masterpiece of Flavian propaganda, using stone to freeze a moment of triumph into an eternal warning. It stands as a bridge between the living city and the sacred ground of the Forum, where the line between history and myth becomes indistinguishably thin.`
+                    },
+                    {
+                        name: "5. The Via Sacra (The Sacred Way)",
+                        coords: [41.8918, 12.4860],
+                        text: `The Via Sacra was the Main Street of the ancient world, the path taken by every victorious general during a Triumph. As you walk its length, pay attention to the basalt paving stones beneath your feet; they are worn smooth by the passage of two thousand years of history. This road was the setting for the most intense sensory experiences of Roman life—the smell of sacrificial incense, the shouting of lawyers from the nearby basilicas, and the constant clatter of commerce. Lucentini would suggest that the road’s narrowness was intentional, designed to compress the crowds and heighten the theatricality of imperial processions. It was here that the destiny of the Western world was decided on a daily basis, amidst the gossip of the markets and the prayers of the temples. Every step here is a dialogue with the past, following the exact route of Caesars and senators who walked this same volcanic stone long before it was an archaeological park.`
+                    },
+                    {
+                        name: "6. Temple of Antoninus and Faustina",
+                        coords: [41.8921, 12.4862],
+                        text: `This building is a visual puzzle that perfectly illustrates the 'stratigraphy' of Rome. Originally a 2nd-century temple dedicated to the Emperor Antoninus Pius and his wife Faustina, it was converted in the Middle Ages into the church of San Lorenzo in Miranda. The ten massive monolithic columns of Cipollino marble—with their beautiful green, onion-like veins—still stand, but if you look at the upper parts of the shafts, you will see deep, diagonal grooves. These were made by medieval ropes in a failed attempt to pull the columns down for building materials. Furthermore, look at the door of the church: it is suspended several meters above the current ground level, a remnant of a time when the Forum was buried in meters of silt and was known simply as the 'Campo Vaccino' (Cow Pasture). It is a building that has survived by inhabitation, a pagan shell protecting a Christian heart, and a witness to the city's long period of neglect and subsequent rediscovery.`
+                    },
+                    {
+                        name: "7. The Curia Julia (Senate House)",
+                        coords: [41.8927, 12.4853],
+                        text: `The Curia Julia is a rare survivor, largely because it was used as a church for over a millennium. This austere brick building was the nerve center of the Roman state, the place where the Senate gathered to debate laws and declare wars. The interior is strikingly simple, featuring a rare surviving 'opus sectile' (marble inlay) floor from the Diocletian era. Notice the three tiers of marble steps on either side; these are where the senators' ivory 'curule' chairs were placed. Lucentini would have you consider the silence of this room; for centuries, it was the loudest place in the world, vibrating with the rhetoric of Cicero and the commands of emperors. The bronze doors are replicas; the originals were moved by Borromini to the Basilica of St. John Lateran, yet another example of Rome's continuous architectural recycling. Standing inside, you are in the physical space where the concept of the 'state' as we know it was forged through compromise and conflict.`
+                    },
+                    {
+                        name: "8. Arch of Septimius Severus",
+                        coords: [41.8928, 12.4848],
+                        text: `Dominating the northern end of the Forum, this massive three-arched monument marks a shift in Roman style toward the 'Baroque'—an aesthetic of crowded detail and towering scale. Built in 203 AD, it celebrates the victories of Septimius Severus and his sons, Caracalla and Geta. A dark piece of family history is hidden in the inscription at the top: after Caracalla murdered his brother Geta to secure sole power, he ordered Geta's name and image erased from every public monument in the empire—a 'damnatio memoriae.' If you look at the fourth line of the inscription, you can see where the holes for the metal letters were filled in and the text rewritten. It is a monument to family ambition and the brutal erasure required to maintain autocracy. The reliefs are dense and chaotic, showing the Roman army as a relentless machine of conquest, a far cry from the serene idealism of earlier Augustan monuments.`
+                    },
+                    {
+                        name: "9. Temple of Saturn",
+                        coords: [41.8923, 12.4844],
+                        text: `The eight surviving Ionic columns of the Temple of Saturn are perhaps the most evocative image of Roman decay and endurance. Dedicated to the god of time and agriculture, this site was also the state treasury, the 'Aerarium,' where the gold and silver of the Republic were stored. The temple was the focus of the Saturnalia, the winter festival where social hierarchies were inverted and slaves were served by their masters. Lucentini points out the 'eclectic' nature of the surviving columns: they are made of different types of granite and have mismatched bases, indicating a hurried reconstruction after a fire in the 4th century. It stands at the very foot of the Capitoline Hill, a threshold between the chaotic commerce of the Forum and the sacred power of the Capitol. These columns have watched the Forum transform from a bustling center of world power into a pasture for cows, and finally into the most famous archaeological site on earth.`
+                    },
+                    {
+                        name: "10. The Tabularium and Capitoline Hill",
+                        coords: [41.8931, 12.4833],
+                        text: `We end the afternoon by looking up at the Tabularium, the massive stone substructure that once held the Roman state archives. Above it sits the Piazza del Campidoglio, Michelangelo’s Renaissance masterpiece. This hill was the spiritual citadel of ancient Rome, home to the great Temple of Jupiter Optimus Maximus. Lucentini would remind you that while the Forum below represents the 'death' of the ancient city, the Capitoline represents its 'rebirth.' The walk up the Cordonata ramp is a deliberate psychological experience designed by Michelangelo to make the visitor feel as if they are ascending to a place of supreme authority. Looking back from the terrace at sunset, you see the Forum as a forest of stone shadows, a landscape where the light of the present constantly illuminates the bones of the past. It is the best place to contemplate the sheer longevity of the city—a view that has remained essentially the same in spirit for over two thousand years.`
+                    }
+                ]
+            },
+            2: {
+                title: "Day 2: The Papal Majesty & The Heart of the City",
+                desc: "A full day spanning the Tiber, from the spiritual fortress of the Vatican to the dense, winding 'Tridente'.",
+                tourName: "Complete Vatican Tour with St. Peter's & Sistine Chapel",
+                tourUrl: "https://www.walksofitaly.com/vatican-tours/complete-vatican-tour",
+                color: "#2563eb",
+                stops: [
+                    {
+                        name: "1. The Cortile della Pigna (Vatican Museums)",
+                        coords: [41.9065, 12.4545],
+                        text: `The Pinecone Courtyard is the architectural 'lung' of the Vatican Museums, a space where the Renaissance thirst for antiquity is most visible. Named after a massive 1st-century bronze pinecone that likely decorated a Roman fountain, it stands as a symbol of the Church's ability to absorb and transform pagan imagery. Lucentini would point your attention to the 'Belvedere Torso' nearby (usually found just inside), which Michelangelo famously refused to 'complete' because he believed its ruined state was perfect. In the center of the courtyard sits Arnaldo Pomodoro’s 'Sphere Within Sphere,' a modern bronze that serves as a profound counterpoint to the ancient pinecone. The golden sphere is cracked open to reveal a complex, mechanical interior—a metaphor for the fragility and intricacy of our world. This courtyard is the threshold of the Papal collections, a place to reset your eyes before the overwhelming visual density of the galleries ahead, where the sacred and the profane have lived in a beautiful, tense alliance for centuries.`
+                    },
+                    {
+                        name: "2. The Raphael Rooms (Stanze di Raffaello)",
+                        coords: [41.9038, 12.4542],
+                        text: `While the world rushes toward the Sistine Chapel, the Raphael Rooms—the former apartments of Pope Julius II—offer a more intellectual and balanced view of the High Renaissance. In the 'School of Athens,' Raphael created a visual manifesto of Humanism. He painted the great philosophers of antiquity but gave them the faces of his contemporaries: Plato is a portrait of Leonardo da Vinci, and the brooding Heraclitus in the foreground is a clear nod to Michelangelo (who was working on the Sistine ceiling next door at the time). Lucentini would have you notice the perfect architectural perspective, which creates an illusion of vast, vaulted space that doesn't actually exist. This room is a dialogue between faith and reason, painted at the precise moment when the Church was attempting to synthesize classical philosophy with Christian doctrine. It represents the peak of harmony in Western art, a world where every figure and every line is placed with divine mathematical certainty.`
+                    },
+                    {
+                        name: "3. The Sistine Chapel",
+                        coords: [41.9029, 12.4545],
+                        text: `The Sistine Chapel is less a room and more an environment of pure creative force. Lucentini advises looking at the 'Last Judgment' on the altar wall, painted 25 years after the ceiling frescoes. The difference is stark: the ceiling represents the hope and beauty of creation, while the altar wall reflects the turmoil of the Sack of Rome and the Reformation. Michelangelo's figures here are more muscular, more tormented, and the blue of the sky is an expensive, deep lapis lazuli. Look for Michelangelo’s 'hidden' self-portrait in the flayed skin of St. Bartholomew—a testament to his own spiritual exhaustion. The chapel serves as the private sanctuary of the Popes and the site of the Conclave, but for the visitor, it is the most intimate encounter possible with the mind of a genius who felt the weight of God in every stroke of the brush. It is a space where the ceiling literally seems to ripple with the energy of the divine.`
+                    },
+                    {
+                        name: "4. St. Peter's Basilica",
+                        coords: [41.9022, 12.4539],
+                        text: `Entering St. Peter’s is an exercise in the 'Baroque shock.' The scale is designed to be incomprehensible; the cherubs holding the holy water fonts are actually six feet tall, and the letters of the inscription around the dome are as high as a man. Lucentini’s favorite detail is the play of light: Bernini's 'Cathedra Petri' (Throne of St. Peter) at the far end features an alabaster window where the Holy Spirit as a dove is surrounded by golden rays. When the sun hits it, the light pours into the nave like liquid gold. Notice the Baldacchino, the massive bronze canopy over the high altar; its bronze was stripped from the Pantheon by the Barberini Pope, leading to the famous Roman quip about the family being worse than the barbarians. The Basilica is a building meant to prove that the Papacy is the true heir to the Roman Empire, using the same colossal scale and materials to create a palace for the soul.`
+                    },
+                    {
+                        name: "5. St. Peter's Square (The Colonnade)",
+                        coords: [41.9021, 12.4572],
+                        text: `Bernini famously described his massive elliptical colonnade as the 'motherly arms of the church' reaching out to embrace the faithful. There are 284 columns, and if you stand on the marble disk marked 'Centro del Colonnato,' the four rows of columns perfectly align so that they appear to be only one. This is Baroque theater at its most deceptive. Lucentini points out the Egyptian obelisk in the center; it was brought to Rome by Caligula and stood in the circus where Peter was executed—it is a 'silent witness' to the very foundation of the faith. The square is a masterpiece of urban planning, turning a chaotic medieval slum into a grand stage that can accommodate 300,000 people. It is the transition point between the sovereign enclave of the Vatican and the secular world of the city, designed to make every pilgrim feel as if they are entering the very heart of the world.`
+                    },
+                    {
+                        name: "6. Via della Conciliazione",
+                        coords: [41.9024, 12.4611],
+                        text: `This wide avenue is a relatively modern scar on the city's face, built by Mussolini in the 1930s to celebrate the reconciliation between the Vatican and the Italian State. To build it, a dense medieval neighborhood known as the 'Spina di Borgo' was demolished. Lucentini laments the loss of the 'surprise' that pilgrims used to feel when they emerged from dark, cramped alleys into the sudden, overwhelming vastness of St. Peter's Square. Today, the avenue provides a grand, cinematic approach, but it lacks the organic texture of the rest of Rome. Notice the lanterns along the road; they are styled to look like ancient Roman obelisks, a nod to the Fascist era's obsession with imperial symbolism. It is a reminder that in Rome, every generation tries to rewrite the city's topography to suit its own political narrative, often at the expense of the city's ancient, labyrinthine soul.`
+                    },
+                    {
+                        name: "7. Castel Sant'Angelo",
+                        coords: [41.9031, 12.4663],
+                        text: `Castel Sant'Angelo is a vertical timeline of Rome. Originally built as a tomb for Emperor Hadrian (the solid, circular core is Roman concrete), it was later fortified into a Papal bastion, a prison, and a luxury residence. Lucentini would have you notice the 'Passetto di Borgo,' the elevated escape tunnel connecting the Vatican to the castle. During the Sack of Rome in 1527, Pope Clement VII famously ran through this tunnel while the Swiss Guard fought to the death to protect him. At the top stands the bronze angel, commemorating the vision of St. Gregory the Great, who saw an angel sheathing a sword to signal the end of a plague. The castle is a hybrid—half imperial tomb, half medieval fortress—offering one of the most cinematic views of the city's rooftops. It is a building that has survived by constantly changing its identity, a stone witness to the city's transformation from imperial capital to papal sanctuary.`
+                    },
+                    {
+                        name: "8. Ponte Sant'Angelo",
+                        coords: [41.9021, 12.4665],
+                        text: `Hadrian built the original bridge to reach his tomb, but Bernini turned it into a 'Way of the Cross' in the 17th century. Ten angels line the bridge, each holding an instrument of Christ's Passion—the cross, the crown of thorns, the nails. Lucentini notes that the angels were carved by Bernini's pupils, but two were so beautiful (the ones carved by Bernini himself) that the Pope kept them for his private collection and had copies placed on the bridge instead. The angels look as if they are dancing in the wind, their marble drapery fluttering with an impossible lightness. Crossing this bridge is a ritualistic transition from the fortress-like Vatican side to the elegant, winding streets of the city center. It is a space where stone becomes fluid, and the heavy theology of the Counter-Reformation is translated into the joyous, wind-swept language of the Baroque.`
+                    },
+                    {
+                        name: "9. Via dei Coronari",
+                        coords: [41.9002, 12.4705],
+                        text: `After the colossal scale of the Vatican, the Via dei Coronari is a delightful return to the human scale of the Renaissance. In the Middle Ages, this was the street of the 'Coronari'—the makers of rosary beads and religious souvenirs for pilgrims. It is one of the few streets in Rome that maintains its perfectly straight Renaissance alignment. Lucentini loves this street for its 'hidden' palaces and antique shops. Look up at the corners of the buildings: you will see small shrines known as 'Madonnelle' built into the walls. These were the only streetlights in old Rome, lit by candles at night to ward off both crime and evil spirits. The street is a sanctuary of quiet elegance, paved with the iconic black basalt 'sanpietrini' stones. It is a place to walk slowly and peer into the courtyards, where fountains and ancient statues hide behind heavy wooden doors, preserving the atmosphere of a Rome that existed before the age of the automobile.`
+                    },
+                    {
+                        name: "10. Piazza Navona",
+                        coords: [41.8992, 12.4731],
+                        text: `We end Day 2 in Rome's most theatrical square. Piazza Navona is literally a ghost of the ancient world; it follows the exact footprint of Domitian's stadium, which was used for athletic contests. The surrounding buildings are built directly onto the foundations of the ancient spectator stands. The centerpiece is Bernini's 'Fountain of the Four Rivers.' Lucentini points out the legendary rivalry between Bernini and Borromini (who designed the church of Sant'Agnese in Agone opposite). Legend says Bernini's statue of the Nile has its head covered so it doesn't have to look at Borromini's church, while the Rio de la Plata raises its hand in fear that the church might collapse. Though the story is chronologically false, it captures the intense artistic competition that fueled the Baroque era. At night, the square becomes a golden stage, reflecting the spirit of a city that has always viewed life as a grand, public performance.`
+                    }
+                ]
+            },
+            3: {
+                title: "Day 3: The Grand Tour & The Water of Rome",
+                desc: "Focusing on the elegance of the 'Tridente,' the tranquility of the Pincian Hill, and the roar of the city's ancient water sources.",
+                tourName: "Private Galleria Borghese Tour",
+                tourUrl: "https://www.walksofitaly.com/rome-tours/private-borghese-gallery-tour",
+                color: "#059669",
+                stops: [
+                    {
+                        name: "1. The Galleria Borghese",
+                        coords: [41.9142, 12.4862],
+                        text: `The Galleria Borghese is the 'gold standard' of private art collections. Built by Cardinal Scipione Borghese, the nephew of Pope Paul V, it was designed specifically to showcase his obsession with beauty. Lucentini would direct your eyes immediately to Bernini's 'Apollo and Daphne.' It is a miracle in marble: at the moment of the god's touch, the girl's fingers turn into laurel leaves and her toes into roots. The marble becomes transparent, almost skin-like. This villa was a 'house of delight,' where the Cardinal hosted extravagant parties. Unlike the Vatican, the art here is sensual, pagan, and intensely emotional. Caravaggio's dark, brooding canvases hang in rooms filled with sunlight, creating a tension that is quintessentially Roman. It is a reminder that in Rome, power and beauty have always been inextricably linked, and that the Church was often the greatest patron of the most 'pagan' of pleasures.`
+                    },
+                    {
+                        name: "2. Temple of Aesculapius (Villa Borghese Lake)",
+                        coords: [41.9130, 12.4795],
+                        text: `This is a late 18th-century 'folly,' a fake ruin built to evoke the romanticism of the ancient world. Located in the heart of the Villa Borghese gardens, the small lake and its temple dedicated to the god of medicine represent the 'English Garden' style that became popular in Rome. Lucentini appreciates this spot for its tranquility—a rare commodity in a city of stone. It reflects the Enlightenment mindset that saw the past as a poetic landscape rather than a political reality. You can rent a small wooden boat and row around the temple, a tradition for Roman families for over a century. It is a manufactured paradise, a stage-set for a leisurely life that provides a necessary counterpoint to the city's heavy, historical architecture. It is the 'green heart' of Rome, where the spirit of the Grand Tour still feels very much alive.`
+                    },
+                    {
+                        name: "3. The Pincio Terrace",
+                        coords: [41.9105, 12.4792],
+                        text: `The Pincio offers the most 'composed' view of Rome. Designed by Giuseppe Valadier in the early 19th century, it was the first public park in Rome. From here, the city spreads out in a perfect panorama of domes and rooftops. Lucentini notes that this view allows you to see the 'Tridente'—the three main streets (Via del Corso, Via del Babuino, Via di Ripetta) that fan out from Piazza del Popolo below. It is the best place to witness a Roman sunset, when the light turns the travertine buildings into honey and the silhouettes of the stone pines look like Japanese ink drawings. It is a view that has been painted by thousands of artists on the Grand Tour, symbolizing the eternal allure of the city. Here, Rome isn't a chaotic mess of traffic; it is a perfectly ordered garden of history, framed by the Tiber and the distant dome of St. Peter's.`
+                    },
+                    {
+                        name: "4. Piazza del Popolo",
+                        coords: [41.9107, 12.4764],
+                        text: `For centuries, this was the main entrance to Rome for travelers arriving from the north. The massive gate, the Porta del Popolo, was decorated by Bernini for the arrival of Queen Christina of Sweden. In the center stands another Egyptian obelisk, brought to Rome by Augustus. Lucentini points to the 'Twin Churches' (Santa Maria in Montesanto and Santa Maria dei Miracoli). Though they look identical, they are actually different shapes—one is oval and one is circular—an architectural trick by Rainaldi to make the square feel symmetrical despite the uneven streets. The piazza is a masterpiece of urban theater, designed to impress the visitor with the scale and order of the Papal city. It is the threshold where the traveler finally leaves the wild countryside and enters the refined world of the Eternal City.`
+                    },
+                    {
+                        name: "5. Via del Babuino",
+                        coords: [41.9085, 12.4795],
+                        text: `One of the three 'teeth' of the Tridente, Via del Babuino is named after a 'talking statue' of a silenus that was so ugly the locals called it 'The Baboon.' This street has traditionally been the home of artists and antique dealers. Lucentini would have you notice the elegant storefronts and the 'Madonnelle' on the corners. It is a street of quiet wealth and refined taste, leading toward the Spanish Steps. It captures the atmosphere of the 19th-century 'Foreigners' Quarter,' where writers like Keats and Byron wandered. The air here is different from the Forum; it feels lighter, more European, and profoundly chic. It is the Rome of the refined traveler, where the history is found not in ruins, but in the curated windows of art galleries and the quiet elegance of the palazzi.`
+                    },
+                    {
+                        name: "6. The Spanish Steps (Scalinata di Trinità dei Monti)",
+                        coords: [41.9059, 12.4827],
+                        text: `The Spanish Steps are a triumph of landscape architecture, designed to connect the Spanish Embassy below with the French church above. Lucentini clarifies a common misconception: they are not Spanish, but were funded by a French diplomat. The design, by De Sanctis, uses a series of curves and straight lines to create a 'butterfly' shape when seen from above. In the spring, the steps are covered in thousands of pink azaleas, a tradition that dates back decades. It is a place of 'sosta' (resting), designed for people-watching. The steps are a monumental stairway that acts like a public living room, a place where the architecture invites you to sit and participate in the city's flow. It is the quintessential Grand Tour location, where every stone has been sat upon by generations of poets and dreamers.`
+                    },
+                    {
+                        name: "7. Fontana della Barcaccia",
+                        coords: [41.9058, 12.4823],
+                        text: `At the foot of the Spanish Steps lies Bernini's 'Leaking Boat' fountain. It commemorates a great flood of the Tiber in 1598, which supposedly left a barge stranded here in the middle of the city. Because the water pressure from the Aqua Virgo was very low in this area, Bernini had to design the fountain to be partially submerged to ensure the water would actually flow. Lucentini loves this fountain for its humility; it doesn't spray water high into the air like the Trevi, but instead 'overflows' quietly. It is a brilliant example of an artist turning a technical limitation into a poetic masterpiece. The boat appears to be sinking into the ground, a metaphor for the way the city of Rome is slowly sinking into the weight of its own history, yet remains afloat through its constant, quiet renewal.`
+                    },
+                    {
+                        name: "8. Via Condotti",
+                        coords: [41.9052, 12.4805],
+                        text: `Rome's most famous shopping street follows the path of an ancient Roman conduit that brought water to the city. Today, it is a canyon of luxury—Prada, Gucci, Bulgari. But Lucentini points us to the Antico Caffè Greco, founded in 1760. This was the meeting place for Casanova, Goethe, Wagner, and Stendhal. The interior is like a museum, with red velvet chairs and marble-topped tables. To drink an espresso here is to touch the 18th-century soul of the city. The street is a paradox: a place of hyper-modern fashion built on the literal foundations of ancient engineering, where the ghosts of the Grand Tour still haunt the designer boutiques. It is the intersection of Rome's ancient practicalities and its modern obsession with appearance.`
+                    },
+                    {
+                        name: "9. The Trevi Fountain (Fontana di Trevi)",
+                        coords: [41.9009, 12.4833],
+                        text: `The Trevi is not just a fountain; it is a wall of water and stone that takes up half a small piazza. It marks the terminus of the 'Aqua Virgo,' an ancient aqueduct built in 19 BC that still brings water into the city. The design shows Neptune (Oceanus) emerging from a rocky landscape on a chariot drawn by sea-horses. Lucentini points out that the fountain is built against the back of the Palazzo Poli, turning a private building into a public monument. The roar of the water is so loud it drowns out the noise of the city, creating a 'micro-climate' of cool mist. The tradition of tossing a coin ensures a return to Rome, but the fountain itself ensures that the city never forgets its primary life-source: the water that made it the capital of the world. It is the ultimate expression of the Baroque: grand, loud, and deeply theatrical.`
+                    },
+                    {
+                        name: "10. The Column of Marcus Aurelius",
+                        coords: [41.9009, 12.4801],
+                        text: `We end our journey at Piazza Colonna. This 30-meter marble column was modeled after Trajan's Column and tells the story of Marcus Aurelius’s wars against the Germans. Lucentini invites us to look at the 'reliefs': they are deeply carved and more expressive than Trajan's, showing the suffering and exhaustion of war. The 'Stoic Emperor' is shown several times, his face weary with the burden of empire. At the top now stands a statue of St. Paul, placed there by a Pope in the 16th century—a final Roman irony where a Christian saint guards the monument of a pagan emperor. It is a fitting conclusion: a pillar of history standing in the center of the modern political district, reminding us that in Rome, the past is never buried; it is simply standing there, waiting to be read. It is the final exclamation point on a walk through a city where every stone is a page of a book that never ends.`
+                    }
+                ]
+            }
+        };
+
+        let map, activeDay = 1, markers = [], pathLine;
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([41.8902, 12.4922], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CARTO'
+            }).addTo(map);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+            setDay(1);
+        }
+
+        function setDay(dayNum) {
+            activeDay = dayNum;
+            const data = romeData[dayNum];
+
+            // UI Updates
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-day-btn'));
+            document.getElementById(`btn${dayNum}`).classList.add('active-day-btn');
+            document.getElementById('current-day-title').innerText = data.title;
+            document.getElementById('current-day-desc').innerText = data.desc;
+            
+            // Tour Promo Update
+            const tourPromo = document.getElementById('tour-promo');
+            tourPromo.innerHTML = `<strong></strong> To unlock the deeper secrets of these sites, consider the <a href="${data.tourUrl}" target="_blank" class="tour-link">${data.tourName}</a>.`;
+
+            // Clear Map
+            markers.forEach(m => map.removeLayer(m));
+            if (pathLine) map.removeLayer(pathLine);
+            markers = [];
+
+            // Populate Content Area
+            const container = document.getElementById('content-area');
+            container.innerHTML = '';
+            
+            const pathCoords = [];
+
+            data.stops.forEach((stop, idx) => {
+                pathCoords.push(stop.coords);
+
+                const marker = L.circleMarker(stop.coords, {
+                    radius: 8,
+                    fillColor: data.color,
+                    color: "#fff",
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.9
+                }).addTo(map);
+                
+                marker.on('click', () => {
+                    const el = document.getElementById(`stop-${idx}`);
+                    el.scrollIntoView({ behavior: 'smooth' });
+                    highlightStop(idx);
+                });
+                markers.push(marker);
+
+                const section = document.createElement('div');
+                section.id = `stop-${idx}`;
+                section.className = "p-6 rounded-xl transition-all duration-500 border border-transparent cursor-pointer";
+                section.innerHTML = `
+                    <h3 class="text-xl font-bold text-stone-800 mb-4 flex items-center">
+                        <span class="inline-block w-8 h-8 rounded-full text-center leading-8 text-sm mr-3 text-white" style="background:${data.color}">${idx+1}</span>
+                        ${stop.name}
+                    </h3>
+                    <div class="narrative-text text-justify">
+                        ${stop.text}
+                    </div>
+                `;
+                section.onclick = () => {
+                    map.flyTo(stop.coords, 17, { animate: true });
+                    highlightStop(idx);
+                };
+                container.appendChild(section);
+            });
+
+            pathLine = L.polyline(pathCoords, {
+                color: data.color,
+                weight: 4,
+                opacity: 0.5,
+                dashArray: '10, 10'
+            }).addTo(map);
+
+            map.flyTo(data.stops[0].coords, 15);
+        }
+
+        function highlightStop(index) {
+            document.querySelectorAll('#content-area > div').forEach(el => {
+                el.classList.remove('path-step-active', 'shadow-lg');
+            });
+            const activeEl = document.getElementById(`stop-${index}`);
+            activeEl.classList.add('path-step-active', 'shadow-lg');
+            
+            markers.forEach((m, i) => {
+                m.setStyle({ radius: i === index ? 12 : 8, fillOpacity: i === index ? 1 : 0.8 });
+            });
+        }
+
+        window.onload = initMap;
+    </script>
+</body>
+</html>
